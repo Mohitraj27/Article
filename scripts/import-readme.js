@@ -2,6 +2,7 @@ import { mkdir, writeFile, access } from 'node:fs/promises'
 import path from 'node:path'
 import { marked } from 'marked'
 import { projectRoot } from './uploads.js'
+import { imageReferences } from './article-images.js'
 
 const [owner, repository, branch = 'main'] = process.argv.slice(2)
 if (!owner || !repository || !/^[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('Usage: node scripts/import-readme.js OWNER REPOSITORY [BRANCH]')
@@ -21,8 +22,8 @@ if (!response.ok) throw new Error(`Cannot fetch README (${response.status}).`)
 const original = await response.text()
 let body = original
 const tokens = marked.lexer(original)
-const images = []
-marked.walkTokens(tokens, token => { if (token.type === 'image') images.push(token) })
+const images = imageReferences(tokens)
+const headingPrefix = tokens.some(token => token.type === 'heading' && token.depth === 1) ? '' : `# ${repository.charAt(0).toUpperCase() + repository.slice(1).replace(/[-_]/g, ' ')}\n\n`
 const downloads = new Map()
 const extensions = { 'image/png': '.png', 'image/jpeg': '.jpeg', 'image/gif': '.gif', 'image/webp': '.webp', 'image/avif': '.avif', 'image/svg+xml': '.svg' }
 
@@ -43,8 +44,8 @@ for (const image of images) {
     downloads.set(url.href, local)
     console.log(`Downloaded ${local}`)
   }
-  body = body.replaceAll(image.raw, image.raw.replace(image.href, local))
+  body = body.replaceAll(image.href, local)
 }
 
-await writeFile(destination, body.trimEnd() + `\n\n---\n\nSource: [${owner}/${repository}](${source})\n`)
+await writeFile(destination, headingPrefix + body.trimEnd() + `\n\n---\n\nSource: [${owner}/${repository}](${source})\n`)
 console.log(`Imported complete README (${original.length} characters) and ${downloads.size} images into ${repository}.md.`)

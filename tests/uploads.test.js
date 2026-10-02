@@ -41,6 +41,16 @@ test('all images embedded in an article remain grouped rather than listed separa
   assert.equal(articles[0].image, 'uploads/assets/first.png')
 }))
 
+test('HTML logos and inline heading images remain grouped with their Markdown article', () => fixture(async directory => {
+  await mkdir(path.join(directory, 'assets'))
+  await writeFile(path.join(directory, 'article.md'), '# Article\n\n<p align="center"><img src="assets/node.svg" width="100"><img src="assets/search.png" width="50"></p>\n\n## <img src="assets/rabbit.svg" width="100"> Communication')
+  for (const file of ['node.svg', 'search.png', 'rabbit.svg']) await writeFile(path.join(directory, 'assets', file), '')
+  const articles = await collectUploads(directory)
+  assert.equal(articles.length, 1)
+  assert.equal(articles[0].image, 'uploads/assets/node.svg')
+  assert.ok(articles[0].body.includes('width="100"'))
+}))
+
 test('text, HTML, documents, and standalone images are listed; hidden files are ignored', () => fixture(async directory => {
   for (const file of ['notes.txt', 'page.html', 'report.pdf', 'photo.webp', '.gitkeep']) await writeFile(path.join(directory, file), 'Content')
   const articles = await collectUploads(directory)

@@ -10,14 +10,15 @@ export default defineConfig({
 		configureServer(server) {
 			const directory = path.join(projectRoot, 'public', 'uploads') + path.sep
 			let timer
+			let refreshing = Promise.resolve()
 			const refresh = (event, file) => {
 				if (!path.resolve(file).startsWith(directory)) return
 				clearTimeout(timer)
-				timer = setTimeout(async () => {
-					try {
+				timer = setTimeout(() => {
+					refreshing = refreshing.then(async () => {
 						await generateUploads()
 						server.ws.send({ type: 'full-reload' })
-					} catch (error) { server.config.logger.error(error.message) }
+					}).catch(error => { server.config.logger.error(error.message) })
 				}, 120)
 			}
 			server.watcher.add(directory)

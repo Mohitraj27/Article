@@ -4,6 +4,7 @@ import { promisify } from 'node:util'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { marked } from 'marked'
+import { imageReferences } from './article-images.js'
 
 const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.svg'])
 const textExtensions = new Set(['.md', '.markdown', '.txt', '.html', '.htm'])
@@ -72,16 +73,16 @@ export async function collectUploads(directory) {
         if (heading) title = tokenText(heading.tokens)
         const paragraph = tokens.find(token => token.type === 'paragraph')
         if (paragraph) summary = tokenText(paragraph.tokens).replace(/\s+/g, ' ').trim().slice(0, 200)
-        marked.walkTokens(tokens, token => {
-          if (token.type !== 'image' || /^https?:\/\//i.test(token.href)) return
+        const references = imageReferences(tokens)
+        for (const reference of references) {
+          if (/^https?:\/\//i.test(reference.href)) continue
           try {
-            const relative = path.posix.normalize(path.posix.join(path.posix.dirname(file), decodeURIComponent(token.href.split(/[?#]/)[0])))
+            const relative = path.posix.normalize(path.posix.join(path.posix.dirname(file), decodeURIComponent(reference.href.split(/[?#]/)[0])))
             if (images.includes(relative)) usedImages.add(relative)
           } catch {}
-        })
+        }
         if (!image) {
-          let reference
-          marked.walkTokens(tokens, token => { if (!reference && token.type === 'image') reference = token.href })
+          const reference = references[0]?.href
           if (reference && /^https?:\/\//i.test(reference)) image = reference
           else if (reference) {
             try {
